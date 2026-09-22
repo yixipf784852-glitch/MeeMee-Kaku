@@ -1,0 +1,13 @@
+{
+  "appId": "com.meemee.kaku",
+  "appName": "咩咩制卡台",
+  "webDir": "dist/app",
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

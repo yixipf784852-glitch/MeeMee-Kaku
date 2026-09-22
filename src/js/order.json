@@ -1,0 +1,19 @@
+[
+  "00-prelude.js",
+  "01-constants.js",
+  "02-png.js",
+  "03-normalize.js",
+  "04-classify.js",
+  "05-diagnose.js",
+  "06-parts.js",
+  "07-assemble.js",
+  "08-check.js",
+  "09-api.js",
+  "10-prompts.js",
+  "11-queue.js",
+  "12-storage.js",
+  "13-ui-pipeline.js",
+  "14-ui-parts.js",
+  "15-ui-repair.js",
+  "16-boot.js"
+]

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>咩咩制卡台 · 从零件到一张卡</title>
+<style>
+/*@@CSS@@*/</style>
+</head>
+<body>
+<header class="topbar">
+ <div class="brand"><span class="brand-mark" aria-hidden="true">咩</span><strong>咩咩制卡台</strong><small class="mono">LOCAL / 01</small></div>
+ <nav class="top-tabs" aria-label="工作区"><button class="top-tab" id="tab-pipeline" data-tab="pipeline" role="tab" aria-selected="true">出卡流水线</button><button class="top-tab" id="tab-parts" data-tab="parts" role="tab" aria-selected="false">零件台</button><button class="top-tab" id="tab-repair" data-tab="repair" role="tab" aria-selected="false">修卡台</button></nav>
+ <div class="top-tools"><button class="api-state" id="open-api" aria-label="接口设置"><span class="api-dot" id="api-dot"></span><span id="api-state-label">未配置接口</span></button><button class="icon-btn" id="theme-toggle" aria-label="切换明暗主题" title="切换明暗主题" data-icon="theme"></button></div>
+</header>
+<div class="layout" id="pipeline">
+ <aside class="rail"><h2 class="section-label">出卡流水线</h2><nav class="steps" aria-label="制卡步骤">
+ <button class="step-link" data-step="1" aria-current="step"><span class="num">01</span><span><strong>从哪开始</strong><small>新建 · 导入 · 接着做</small></span></button>
+ <button class="step-link" data-step="2" disabled><span class="num">02</span><span><strong>看看这张卡</strong><small>体检与缺件盘点</small></span></button>
+ <button class="step-link" data-step="3" disabled><span class="num">03</span><span><strong>补齐零件</strong><small>分三波，边写边装</small></span></button>
+ <button class="step-link" data-step="4" disabled><span class="num">04</span><span><strong>装配</strong><small>分区 · 排序 · 自检</small></span></button>
+ <button class="step-link" data-step="5" disabled><span class="num">05</span><span><strong>拿走</strong><small>一张能带走的卡</small></span></button>
+ </nav><div class="rail-note"><div class="rule-short"></div>装配只整理结构。<br>正文一个字都不会动。<div class="save-status" id="save-status">工程自动保存在本机</div><button class="text-btn" id="restore-open">打开存档点</button></div></aside>
+ <main class="workbench">
+ <section id="step1" aria-labelledby="heading1">
+  <div class="page-heading"><div class="page-number serif">01</div><div><div class="eyebrow">A CARD STARTS HERE</div><h1 id="heading1">从哪开始</h1><p>从一个作品名，走到一张能带进酒馆的卡。</p></div></div>
+  <div class="entry-choices"><button class="choice active" data-entry="new"><span data-icon="plus"></span>空白新建</button><button class="choice" data-entry="card"><span data-icon="upload"></span>导入角色卡</button><button class="choice" data-entry="book"><span data-icon="book"></span>导入世界书</button></div>
+  <button class="text-btn" id="start-restore">从本机存档继续</button>
+  <div id="import-zone" hidden><div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="选择文件或拖入文件"><span data-icon="upload" data-size="28"></span><h2 id="drop-title">把角色卡放在这里</h2><p id="drop-help">支持 PNG 角色卡与 JSON 文件，正文原样保留。</p><button class="btn" id="choose-file">选择文件</button></div></div>
+  <div id="new-form">
+  <div class="form-grid"><label class="field"><span>作品名</span><input id="work-name" placeholder="例如：BanG Dream!" autocomplete="off"></label><label class="field"><span>卡名 <small class="muted">可以稍后再改</small></span><input id="card-name" placeholder="例如：在下北泽，故事开始" autocomplete="off"></label></div>
+  </div>
+  <label class="field"><span>原作资料 <small class="mono muted" id="lore-count">0 / 12,000</small></span><textarea id="lore-text" rows="6" maxlength="12000" placeholder="把原作设定、人物关系、时代背景和剧情资料贴在这里。资料越具体，写出来的零件越贴近作品。"></textarea><span class="hint">资料保存在本机。点击生成时才会随提示词发送到你配置的接口。</span></label>
+  <label class="check-label"><input type="checkbox" id="lore-web">允许模型使用联网资料</label><p class="small muted">需要所选模型本身支持联网；未查到的内容应留白，不补造原作事实。</p>
+  <div class="section-title">角色清单 <span class="small">一行一个，按需生成</span></div>
+  <label class="field"><span class="sr-only">角色清单</span><textarea id="roster" rows="4" placeholder="户山香澄&#10;花园多惠 | 在这里接这个角色的专属资料&#10;牛込里美"></textarea><span class="hint">用「角色名 | 专属资料」补充细节。已有角色不会重复加入队列。</span></label>
+  <details class="details-box" id="timeline-details"><summary>模板与时间线范围</summary><div class="form-grid"><label class="field"><span>角色模板</span><select id="char-template"><option value="charV2">角色资料 ver2.0</option><option value="charV1">角色资料 ver1.0</option></select></label><label class="field"><span>时间线怎么切</span><select id="timeline-template"><option value="tlTVD">TV 动画 · 按天</option><option value="tlTV">TV 动画 · 按集</option><option value="tlArc">长篇 · 按篇章、按天</option><option value="tlNovel">轻小说 · 按卷 / 章节</option></select></label><label class="field"><span>生成范围</span><select id="timeline-scope"><option value="arc">只写一个篇章</option><option value="whole">一次性输出完（体量小的作品）</option></select></label><label class="field"><span>篇章名</span><input id="timeline-arc" placeholder="第一季 / 第 01 卷"></label><label class="field"><span>起始日期</span><input id="timeline-start" placeholder="例如：2019年4月1日"></label></div></details>
+  <div class="action-bar"><div class="action-note" id="start-note">先把工程建起来。下一步会告诉你，<br>这张卡有了什么，还缺什么。<br><button class="text-btn" id="new-project" hidden>存好当前工程，另建空白卡</button></div><div class="mobile-primary"><button class="btn-primary" id="create-card">建立工程，开始盘点 <span data-icon="arrow"></span></button></div></div>
+ </section>
+ <section id="step2" hidden aria-labelledby="heading2"><div class="page-heading"><div class="page-number">02</div><div><div class="eyebrow">CHECK BEFORE ASSEMBLY</div><h1 id="heading2">这张卡现在什么样</h1><p>先看结构，再看缺件。需要的零件，可以在这里补齐。</p></div></div><div id="health-summary" class="status-line"></div><div class="section-title">需要处理的</div><div id="fault-list"></div><details class="details-box" id="convention"><summary id="convention-summary"></summary><div id="convention-list"></div></details><div class="section-title">零件盘点 <span class="small" id="parts-count"></span></div><div id="part-list"></div><div class="action-bar"><p class="action-note">先预览清单和用量，再开跑。<br>这一轮是起点，之后还可以继续添角色、补篇章。</p><div class="mobile-primary"><button class="btn-primary" id="preview-all"><span data-icon="bolt"></span><span id="preview-label">一键出卡</span></button></div></div><button class="text-btn" data-go="4">已有正文，只整理结构 <span data-icon="arrow"></span></button></section>
+ <section id="step3" hidden aria-labelledby="heading3"><div class="page-heading"><div class="page-number">03</div><div><div class="eyebrow">ONE PIECE AT A TIME</div><h1 id="heading3">补齐零件</h1><p>波内并发，波间等齐。后面的零件会读到前面的成果。</p></div></div><div class="status-line" id="queue-summary"></div><div class="queue-progress"><span id="queue-progress-bar" style="width:0%"></span></div><div id="queue-list"></div><div class="inline-tools" id="queue-controls"><button class="btn btn-danger" id="queue-stop" hidden><span data-icon="stop"></span>停止生成</button><button class="btn-primary" id="queue-resume" hidden><span data-icon="play"></span>接着跑</button><button class="btn" id="queue-preview"><span data-icon="plus"></span>再补一轮</button><button class="btn" data-go="4">去装配 <span data-icon="arrow"></span></button></div><p class="source-note">自检通过的零件自动装进卡。不通过的保留在这里，支持查看、手改和重生成。停止后，已生成的零件都还在。</p></section>
+ <section id="step4" hidden aria-labelledby="heading4"><div class="page-heading"><div class="page-number">04</div><div><div class="eyebrow">SET THE TYPE</div><h1 id="heading4">把零件装成一张卡</h1><p>分区决定版面，顺序决定阅读。正文保持原样。</p></div></div><div class="section-title">装配开关</div><div id="assembly-switches" class="switches"></div><div class="inline-tools"><button class="btn-primary" id="assemble"><span data-icon="list"></span>整理结构</button><button class="btn" id="save-snapshot">存个档</button><button class="btn" id="show-snapshots">回到存档点</button></div><div id="assembly-summary" class="source-note"></div><div class="section-title">条目明细 <span class="small" id="entry-count"></span></div><div class="table-tools"><input id="entry-filter" type="search" placeholder="筛选条目名或正文" aria-label="筛选条目"><button class="btn btn-sm" id="add-manual">手工加一件</button></div><div id="entry-table-container" class="entry-table-wrap"></div><div class="section-title">全卡格式自检</div><div id="card-qc"></div><div class="action-bar"><p class="action-note">格式通过不等于原作内容准确。<br>生成的新正文，请在使用前读一遍。</p><div class="mobile-primary"><button class="btn-primary" data-go="5">去拿走这张卡 <span data-icon="arrow"></span></button></div></div></section>
+ <section id="step5" hidden aria-labelledby="heading5"><div class="page-heading"><div class="page-number">05</div><div><div class="eyebrow">READY TO TAKE AWAY</div><h1 id="heading5">拿走这张卡</h1><p>同一个工程，三种出口。立绘随时可以换。</p></div></div><div id="export-content"></div><div class="inline-tools"><button class="btn btn-sm" id="choose-art"><span data-icon="upload"></span>换张立绘</button><button class="text-btn" id="clear-art">使用默认封面</button></div><div class="export-actions"><button class="btn-primary" id="export-png"><span data-icon="download"></span>下载 PNG</button><button class="btn" id="export-json">角色卡 JSON</button><button class="btn" id="export-book">世界书 JSON</button></div><div class="note">导进酒馆请走「角色管理 → 导入」。不要直接把 PNG 拷进 characters 目录，否则内嵌世界书可能无法解出并绑定。若酒馆提示导入内嵌世界书，请确认导入；未弹提示时，可在角色的「更多 → 导入角色卡的世界书」导入。若仍未绑定，再用「更多 → 链接到世界书」选择对应世界书。</div><p class="source-note">本页能验证文件结构和格式。开场白、世界书触发和状态栏表现，还需要在你的酒馆与配套预设中实际确认。</p><div class="action-bar"><p class="action-note">一张能玩起来的最小完整体，<br>也是下一轮创作的起点。</p><button class="btn" data-go="2">重新盘点 <span data-icon="refresh"></span></button></div></section>
+ </main>
+ <aside class="live-rail" id="live-rail" aria-label="卡的实况"></aside>
+ <details class="mobile-live" id="mobile-live"><summary id="mobile-live-summary">尚未建立工程</summary><div class="mobile-live-content" id="mobile-live-content"></div></details>
+</div>
+<div class="layout parts-layout" id="parts" hidden>
+ <aside class="template-rail"><h2 class="section-label">模板库 <span class="mono">12</span></h2><div class="template-list" id="template-list"></div><p class="source-note">八份工坊模板原文保留。<br>所有零件共用同一套格式自检。</p></aside>
+ <main class="workbench parts-workbench"><div class="parts-heading"><div class="eyebrow">THE PARTS BENCH</div><h1 id="manual-title">角色资料 ver2.0</h1><p id="manual-desc"></p></div><label class="field"><span id="manual-name-label">角色名称</span><input id="manual-name" placeholder="这次要写谁，或写哪一部分"></label><label class="field"><span>这件的专属资料 <small class="mono muted" id="manual-material-count"></small></span><textarea id="manual-material" rows="5" placeholder="补充这件零件需要的资料。流水线里填写的共享资料也会一起使用。"></textarea></label><div id="manual-timeline" class="form-grid" hidden><label class="field"><span>生成范围</span><select id="manual-scope"><option value="arc">只写一个篇章</option><option value="whole">一次性输出完（体量小的作品）</option></select></label><label class="field"><span>篇章</span><input id="manual-arc" placeholder="第一季 / 第01卷"></label><label class="field"><span>起始日期</span><input id="manual-start" placeholder="2019年4月1日"></label></div><div class="inline-tools"><button class="btn-primary" id="manual-generate"><span data-icon="play"></span>生成这一件</button><button class="btn btn-danger" id="manual-stop" hidden><span data-icon="stop"></span>停止</button><button class="btn" id="copy-prompt"><span data-icon="copy"></span>复制完整 Prompt</button></div><div class="output-head"><strong>输出 <span class="mono muted small" id="manual-count">0 字</span></strong><div class="output-actions"><button class="icon-btn" id="copy-output" aria-label="复制输出" data-icon="copy"></button><button class="btn-soft" id="manual-apply"><span data-icon="plus"></span>装进当前卡</button></div></div><textarea id="manual-output" class="output-text" aria-label="生成输出，可手工编辑" placeholder="生成的正文会出现在这里。&#10;&#10;也可以把其他聊天工具的成品贴回来，自检后装进卡。"></textarea><details class="details-box" id="manual-reasoning-box" hidden><summary>思考过程</summary><pre id="manual-reasoning" class="reasoning"></pre></details><div id="manual-qc" class="qc-line muted">生成或粘贴正文后，格式自检会显示在这里。</div><p class="source-note" id="manual-target">当前没有卡工程。装入时会按零件名称建立一个工程。</p></main>
+ <aside class="history-rail"><details open id="history-details"><summary>生成历史</summary><div id="history-list"></div></details></aside>
+</div>
+<div class="layout repair-layout" id="repair" hidden>
+ <aside class="rail"><h2 class="section-label">修卡台</h2><nav class="steps" aria-label="修卡步骤">
+ <button class="step-link" data-rstep="1" aria-current="step"><span class="num">01</span><span><strong>把卡放进来</strong><small>PNG · JSON · 世界书</small></span></button>
+ <button class="step-link" data-rstep="2"><span class="num">02</span><span><strong>哪儿坏了</strong><small>结构体检</small></span></button>
+ <button class="step-link" data-rstep="3"><span class="num">03</span><span><strong>已经修好了</strong><small>逐条看改了什么</small></span></button>
+ <button class="step-link" data-rstep="4"><span class="num">04</span><span><strong>缺件与正文</strong><small>补件 · 照模板重铸</small></span></button>
+ <button class="step-link" data-rstep="5"><span class="num">05</span><span><strong>拿走</strong><small>下载 · 送进流水线</small></span></button>
+ </nav><div class="rail-note"><div class="rule-short"></div>结构当场就修好了。<br>正文一个字都不会动，<br>除非你自己勾了重铸。<br><br>这页不自动存档，刷新就清空。<br>要留着，就下载，<br>或者送进出卡流水线。</div></aside>
+ <main class="workbench">
+
+ <section class="repair-step" id="rstep1">
+  <div class="page-heading"><div class="page-number serif">01</div><div><div class="eyebrow">A BROKEN CARD COMES IN</div><h1>把卡放进来</h1><p>一张导进酒馆玩不了的卡。这里会告诉你哪儿坏了、当场修好结构，缺的件可以让 AI 照咩咩的规矩补。</p></div></div>
+  <div class="dropzone" id="repair-drop" tabindex="0" role="button" aria-label="选择要修的卡"><span data-icon="upload" data-size="28"></span><h2>拖一张卡进来，或者点这里选</h2><p>PNG 角色卡 / JSON 卡 / 单独的世界书 JSON · 全程在你自己电脑上跑，不上传</p><button class="btn" id="repair-choose">选择文件</button></div>
+  <div class="status-line" id="repair-source"></div>
+ </section>
+
+ <section class="repair-step idle" id="rstep2">
+  <div class="page-heading"><div class="page-number serif">02</div><div><div class="eyebrow">WHAT IS ACTUALLY BROKEN</div><h1>这张卡哪儿坏了</h1><p>「重」是不修就玩不了的，「惯例」只是不合咩咩母版，别人的卡有自己的一套。</p></div></div>
+  <div class="status-line" id="repair-health"></div>
+  <div id="repair-faults"></div>
+  <details class="details-box" id="repair-convention" hidden><summary id="repair-convention-summary"></summary><div id="repair-convention-list"></div></details>
+ </section>
+
+ <section class="repair-step idle" id="rstep3">
+  <div class="page-heading"><div class="page-number serif">03</div><div><div class="eyebrow">ALREADY PUT BACK IN PLACE</div><h1>已经修好了</h1><p>分区、序号、注入位置、常驻与关键词都归位了。下面是逐条的改前改后。</p></div></div>
+  <div id="repair-fixed"></div>
+ </section>
+
+ <section class="repair-step idle" id="rstep4">
+  <div class="page-heading"><div class="page-number serif">04</div><div><div class="eyebrow">WHAT IS STILL MISSING</div><h1>还缺哪些件，正文合不合模板</h1><p>结构修好不等于能玩。正文得照咩咩模板写，AI 扮演时才认得出栏位。</p></div></div>
+  <label class="field"><span>原作资料 <small class="mono muted" id="repair-lore-count">0 / 12,000</small></span><textarea id="repair-lore" rows="5" maxlength="12000" placeholder="把萌娘百科 / 维基 / 设定集 / 你自己整理的资料粘进来。重铸正文和让 AI 补件的时候都会带上它。"></textarea><span class="hint">空着的话 AI 只能靠自己的记忆写，冷门作品容易编。资料只保存在本机，点生成时才随提示词发出去。</span></label>
+  <label class="check-label"><input type="checkbox" id="repair-lore-web">让 AI 自己联网查</label>
+  <p class="small muted">得模型本身支持联网才有用；不支持就当没勾。</p>
+  <div class="section-title">件 <span class="small" id="repair-parts-count"></span></div>
+  <div id="repair-parts"></div>
+  <div id="repair-format"></div>
+  <div id="repair-genbox"></div>
+  <div id="repair-recast"></div>
+ </section>
+
+ <section class="repair-step idle" id="rstep5">
+  <div class="page-heading"><div class="page-number serif">05</div><div><div class="eyebrow">TAKE IT AWAY</div><h1>拿走</h1><p>原文件没动过。下载的是修好结构、按你勾选换过正文的那一份。</p></div></div>
+  <div id="repair-export"></div>
+  <div class="inline-tools"><button class="btn btn-sm" id="repair-choose-art"><span data-icon="upload"></span>换张立绘</button><button class="text-btn" id="repair-clear-art">使用默认封面</button></div>
+  <div class="export-actions"><button class="btn-primary" id="repair-png"><span data-icon="download"></span>下载修好的 PNG</button><button class="btn" id="repair-json">角色卡 JSON</button><button class="btn" id="repair-book">世界书 JSON</button></div>
+  <div class="note">导进酒馆要走「角色管理 → 导入」，别直接把 PNG 拷进 characters 目录——那样内嵌世界书不会被解出来绑上。若酒馆没有自动绑定，再用角色的「更多 → 链接到世界书」选一次。</div>
+  <div class="action-bar"><p class="action-note">还想往这张卡里加角色、加篇章？<br>送进出卡流水线，用同一套队列接着补。<br>送过去会先把流水线当前的工程存档。</p><div><button class="btn-primary" id="repair-to-pipeline">送进出卡流水线 <span data-icon="arrow"></span></button></div></div>
+ </section>
+
+ </main>
+</div>
+<input type="file" id="repair-file" accept=".png,.json,.txt" hidden><input type="file" id="repair-art" accept="image/png,image/jpeg,image/webp" hidden>
+<dialog class="modal" id="preview-modal" aria-labelledby="preview-heading"><div class="modal-head"><h2 id="preview-heading">开跑前，看一眼清单</h2><button class="icon-btn" data-close aria-label="关闭预览" data-icon="close"></button></div><p class="modal-intro">只生成勾选的零件。任务会按三波执行，自检未通过时最多重试一次。</p><div class="preview-total" id="preview-total"></div><div id="preview-jobs"></div><div class="form-grid" style="margin-top:18px"><label class="field"><span>并发数量</span><select id="queue-concurrency"><option value="1">1 · 一次写一件</option><option value="2">2</option><option value="3" selected>3 · 默认</option><option value="4">4</option><option value="5">5</option></select></label><label class="field"><span>时间线篇章</span><input id="preview-arc" placeholder="例如：第一季"></label><label class="field"><span>起始日期</span><input id="preview-start" placeholder="例如：2019年4月1日"></label></div><p class="small muted" id="preview-api-hint"></p><div class="modal-footer"><button class="btn" data-close>取消</button><button class="btn-primary" id="queue-start"><span data-icon="play"></span>开跑勾选的零件</button></div></dialog>
+<dialog class="modal" id="api-modal" aria-labelledby="api-heading"><div class="modal-head"><h2 id="api-heading">连接你的接口</h2><button class="icon-btn" data-close aria-label="关闭接口设置" data-icon="close"></button></div><p class="modal-intro">支持 OpenAI 兼容接口。配置与密钥只保存在当前浏览器本机，生成时直接发送到你填写的地址。</p><div class="providers" id="providers"></div><label class="field"><span>接口地址</span><input id="api-base" type="url" placeholder="https://example.com/v1" spellcheck="false"></label><label class="field"><span>API 密钥</span><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="填写你的密钥"></label><div class="form-grid"><label class="field"><span>模型名称</span><input id="api-model" list="model-list" placeholder="输入模型名或读取列表"><datalist id="model-list"></datalist></label><div class="field"><span>模型列表</span><button class="btn full-width" id="fetch-models">读取模型</button></div></div><div class="form-grid"><label class="field"><span>温度 <output id="api-temp-value">0.8</output></span><input id="api-temp" type="range" min="0" max="2" step="0.1"></label><label class="field"><span>最大输出 token</span><input id="api-max" type="number" min="256" max="200000" step="256"></label></div><label class="check-label"><input type="checkbox" id="api-stream" checked>流式输出，边写边看</label><div id="api-feedback" class="source-note" role="status"></div><details class="details-box"><summary>连不上？看看跨域说明</summary><p id="cors-hint" class="source-note"></p><p class="source-note">同目录附有「接口代理.py」。启动后，将这里的地址改为代理给出的本机地址。</p></details><div class="modal-footer"><button class="btn" id="test-api">测一下通不通</button><button class="btn-primary" id="save-api">保存设置</button></div></dialog>
+<dialog class="modal wide" id="inspect-modal" aria-labelledby="inspect-heading"><div class="modal-head"><h2 id="inspect-heading">查看零件</h2><button class="icon-btn" data-close aria-label="关闭零件预览" data-icon="close"></button></div><p id="inspect-note" class="modal-intro"></p><textarea class="entry-text" id="inspect-text" aria-label="零件正文"></textarea><details class="details-box" id="inspect-reasoning-box" hidden><summary>思考过程</summary><pre id="inspect-reasoning" class="reasoning"></pre></details><div id="inspect-qc" class="qc-line"></div><div class="modal-footer"><button class="btn" id="inspect-copy">复制正文</button><button class="btn" id="inspect-regenerate">在零件台重生成</button><button class="btn-primary" id="inspect-save">自检并装入</button></div></dialog>
+<dialog class="modal" id="snapshots-modal" aria-labelledby="snapshots-heading"><div class="modal-head"><h2 id="snapshots-heading">回到存档点</h2><button class="icon-btn" data-close aria-label="关闭存档列表" data-icon="close"></button></div><p class="modal-intro">回滚前会保存当前工程。队列恢复后保持暂停，不会自动发起请求。</p><div id="snapshots-list"></div></dialog>
+<input type="file" id="import-file" accept=".png,.json,.txt" hidden><input type="file" id="art-file" accept="image/png,image/jpeg,image/webp" hidden>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<!--@@TEMPLATES@@-->
+
+
+<script>
+/*@@JS@@*/</script>
+</body></html>

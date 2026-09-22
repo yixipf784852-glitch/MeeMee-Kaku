@@ -1,0 +1,6 @@
+# 统一用 LF：模板原文要一字不差，Prettier 也按 LF 排版
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.jar binary
+*.jks binary

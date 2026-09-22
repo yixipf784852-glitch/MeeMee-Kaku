@@ -1,0 +1,60 @@
+{
+  "name": "meemee-kaku",
+  "productName": "咩咩制卡台",
+  "version": "2.0.0",
+  "description": "从零件到一张 SillyTavern 角色卡：出卡流水线、零件台、修卡台",
+  "private": true,
+  "type": "module",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node --test \"test/*.test.mjs\"",
+    "format": "prettier --write \"src/js/*.js\" src/styles/app.css",
+    "desktop": "node tools/build.mjs && electron .",
+    "desktop:dist": "node tools/build.mjs && electron-builder --win",
+    "android:sync": "node tools/build.mjs && cap sync android",
+    "android:apk": "node tools/android.mjs",
+    "android:debug": "node tools/android.mjs debug"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/filesystem": "^8.1.3",
+    "@capacitor/share": "^8.0.2",
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3",
+    "prettier": "^3.9.8"
+  },
+  "author": "咩咩",
+  "build": {
+    "appId": "com.meemee.kaku",
+    "productName": "咩咩制卡台",
+    "directories": {
+      "output": "dist/desktop"
+    },
+    "files": [
+      "desktop/main.cjs",
+      "desktop/icon.png",
+      "dist/web/**",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "desktop/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "咩咩制卡台",
+      "artifactName": "MeeMee-Kaku-${version}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "MeeMee-Kaku-${version}-portable.${ext}"
+    }
+  }
+}
