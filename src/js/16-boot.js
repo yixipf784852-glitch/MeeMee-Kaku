@@ -44,6 +44,7 @@ async function init() {
           $('#import-file').accept = entryMode === 'book' ? '.json' : '.png,.json,.txt';
         }
         if (b.dataset.generateKind) openPreview(b.dataset.generateKind);
+        if (b.dataset.continueTimeline !== undefined) await continueTimeline();
         if (b.dataset.viewJob) inspectJob(b.dataset.viewJob);
         if (b.dataset.retryJob) {
           if (guardIdle()) {
@@ -155,7 +156,7 @@ async function init() {
         if (!busy()) readProjectInputs();
       }),
     );
-    ['lore-web', 'char-template', 'timeline-template', 'timeline-scope'].forEach(id =>
+    ['lore-web', 'char-template', 'timeline-template', 'timeline-scope', 'setting-mode'].forEach(id =>
       $('#' + id).addEventListener('change', () => {
         if (!busy()) readProjectInputs();
       }),
@@ -292,10 +293,19 @@ async function init() {
       renderManualQC();
       persistSoon();
     };
-    ['manual-name', 'manual-material', 'manual-arc', 'manual-start', 'manual-scope'].forEach(
+    [
+      'manual-name',
+      'manual-material',
+      'manual-arc',
+      'manual-start',
+      'manual-scope',
+      'manual-continue',
+      'manual-setting-mode',
+    ].forEach(
       id =>
         ($('#' + id).oninput = () => {
           readManualInputs();
+          if (id === 'manual-scope' || id === 'manual-continue') renderContinue();
           persistSoon();
         }),
     );

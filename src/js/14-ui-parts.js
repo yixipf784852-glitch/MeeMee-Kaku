@@ -14,6 +14,36 @@ function renderTemplates() {
   $('#manual-desc').textContent = t.desc || '';
   $('#manual-name-label').textContent = t.kind === 'chara' ? '角色名称' : '作品 / 零件名称';
   $('#manual-timeline').hidden = t.kind !== 'timeline';
+  $('#manual-setting').hidden = t.kind !== 'setting';
+}
+function timelineEntries() {
+  ensureIds();
+  return cardEntries().filter(e => /<world_timeline>[\s\S]*<\/world_timeline>/.test(e.content || ''));
+}
+// 「接着写」要选一条卡里现成的时间线；没有就只能先写一段
+function renderContinue() {
+  const list = timelineEntries(),
+    scope = $('#manual-scope'),
+    want = S.manual.params?.continueId;
+  scope.querySelector('[value="continue"]').disabled = !list.length;
+  if (scope.value === 'continue' && !list.length) scope.value = 'arc';
+  const on = scope.value === 'continue';
+  $('#manual-continue').innerHTML = list
+    .map(e => {
+      const tail = timelineTail(e.content);
+      return `<option value="${esc(e.__miemieId)}">${esc(e.comment || '时间线')}${tail?.sandboxDate ? ' · 到 ' + esc(tail.sandboxDate) : ''}</option>`;
+    })
+    .join('');
+  if (list.length)
+    $('#manual-continue').value = list.some(e => e.__miemieId === want) ? want : list[list.length - 1].__miemieId;
+  $('#manual-continue-field').hidden = !on;
+  $('#manual-start-field').hidden = on;
+  $('#manual-arc-label').textContent = on ? '这一段叫什么（可不填）' : '篇章';
+  const tail = on && timelineTail(list.find(e => e.__miemieId === $('#manual-continue').value)?.content);
+  $('#manual-continue-note').hidden = !on;
+  $('#manual-continue-note').textContent = tail
+    ? `专属资料贴下一段原文（比如第 201 章往后），整段发送。${tail.sandboxDate ? '日期从 ' + tail.sandboxDate + ' 之后排，' : ''}${tail.nextLetter ? '事件从 ' + tail.nextLetter + ' 往下编，' : ''}写完直接接进这条时间线。`
+    : '';
 }
 function syncManualInputs() {
   S.manual ||= { tplId: uiCfg.tplId, name: '', material: '', text: '', reasoning: '', appliedIds: [], params: {} };
@@ -24,11 +54,18 @@ function syncManualInputs() {
   $('#manual-reasoning-box').hidden = !S.manual.reasoning;
   $('#manual-arc').value = S.manual.params?.arc || S.params.arc || '';
   $('#manual-start').value = S.manual.params?.start || S.params.start || '';
-  $('#manual-scope').value = (S.manual.params?.whole ?? S.params.whole) ? 'whole' : 'arc';
+  $('#manual-scope').value = S.manual.params?.continueId
+    ? 'continue'
+    : (S.manual.params?.whole ?? S.params.whole)
+      ? 'whole'
+      : 'arc';
+  $('#manual-setting-mode').value = (S.manual.params?.settingOne ?? S.params.settingOne) ? 'one' : 'split';
+  renderContinue();
   renderMaterialCount();
   renderManualQC();
 }
 function readManualInputs() {
+  const scope = $('#manual-scope').value;
   Object.assign(S.manual, {
     name: $('#manual-name').value.trim(),
     material: $('#manual-material').value,
@@ -36,7 +73,9 @@ function readManualInputs() {
     params: {
       arc: $('#manual-arc').value.trim(),
       start: $('#manual-start').value.trim(),
-      whole: $('#manual-scope').value === 'whole',
+      whole: scope === 'whole',
+      settingOne: $('#manual-setting-mode').value === 'one',
+      ...(scope === 'continue' && $('#manual-continue').value ? { continueId: $('#manual-continue').value } : {}),
     },
   });
   renderMaterialCount();
@@ -46,7 +85,7 @@ function renderMaterialCount() {
   if (!el) return;
   const n = $('#manual-material').value.length,
     t = TEMPLATES.find(x => x.id === S.manual.tplId),
-    whole = t?.kind === 'timeline' && $('#manual-scope').value === 'whole';
+    whole = t?.kind === 'timeline' && $('#manual-scope').value !== 'arc';
   el.textContent = n ? `${n.toLocaleString()} 字${n > 12000 ? (whole ? ' · 全部发送' : ' · 只发前 12,000') : ''}` : '';
   el.className = 'mono small ' + (n > 12000 && !whole ? 'warn' : 'muted');
 }
@@ -64,6 +103,7 @@ function manualJob() {
     params: S.manual.params,
     appliedIds: S.manual.appliedIds || [],
     appliedOpenings: S.manual.appliedOpenings || [],
+    mergedBase: S.manual.mergedBase,
     text: S.manual.text,
     reasoning: S.manual.reasoning || '',
   };
@@ -110,6 +150,8 @@ async function generateManual() {
   $('#manual-material').disabled = true;
   S.manual.text = '';
   S.manual.reasoning = '';
+  // 新写的一段是新零件：接时间线时要接在当前内容后面，不能退回上一次接之前
+  delete S.manual.mergedBase;
   $('#manual-output').value = '';
   try {
     const result = await ask(prompt.sys, prompt.user, {
@@ -160,14 +202,77 @@ async function applyManual() {
     S.card = blankCard(S.lore.work, job.name || '零件卡');
     S.filename = S.card.data.name;
   }
+  if (!job.params?.continueId) {
+    const prepared = prepareGenerated(job.tplId, job.text, job.name, job.params || {}),
+      ids = new Set(cardEntries().map(e => e.__miemieId)),
+      again = job.appliedIds.some(id => ids.has(id));
+    if (prepared.entries.length > 1 || again) {
+      const choice = await askApply(prepared.entries, again, job.seg);
+      if (!choice) return;
+      job.pick = choice.pick;
+      if (!choice.replace) job.appliedIds = [];
+    }
+  }
   applyGen(job, job.text);
   S.manual.appliedIds = job.appliedIds;
+  S.manual.mergedBase = job.mergedBase;
   S.manual.appliedOpenings = job.appliedOpenings || [];
   S.manual.id = job.id;
   onCardChanged();
   await saveProject();
   goStep(4);
-  toast('零件已装进当前卡');
+  toast(job.params?.continueId ? '接好了，新的一段已经并进原来那条时间线' : '零件已装进当前卡');
+}
+// 写出好几条时挑着装；之前装过的，问一句是换掉还是另装一份
+function askApply(entries, again, seg) {
+  const d = $('#apply-modal'),
+    many = entries.length > 1;
+  $('#apply-pick').hidden = !many;
+  $('#apply-mode').hidden = !again;
+  $('#apply-list').innerHTML = many
+    ? entries
+        .map(
+          (e, i) =>
+            `<label class="preview-row"><input type="checkbox" data-apply-index="${i}" checked><i class="seg-dot" style="background:var(--seg-${esc(seg || 'rule')})"></i><span>${esc(e.comment)}</span><small>${e.content.length.toLocaleString()} 字</small></label>`,
+        )
+        .join('')
+    : '';
+  d.querySelector('[name="apply-mode"][value="replace"]').checked = true;
+  return new Promise(resolve => {
+    let done = false;
+    const finish = value => {
+      if (done) return;
+      done = true;
+      $('#apply-confirm').onclick = null;
+      d.removeEventListener('close', cancel);
+      resolve(value);
+    };
+    const cancel = () => finish(null);
+    $('#apply-confirm').onclick = () => {
+      const pick = many
+        ? [...d.querySelectorAll('[data-apply-index]')].filter(x => x.checked).map(x => +x.dataset.applyIndex)
+        : [0];
+      if (!pick.length) {
+        toast('至少勾一条');
+        return;
+      }
+      finish({ pick, replace: d.querySelector('[name="apply-mode"]:checked')?.value !== 'add' });
+      d.close();
+    };
+    d.addEventListener('close', cancel);
+    showDialog('#apply-modal');
+  });
+}
+// 盘点里时间线已就位时的「接着写」：带着最后一条时间线去零件台
+async function continueTimeline() {
+  if (!guardIdle()) return;
+  const last = timelineEntries().pop();
+  if (!last) return;
+  await selectTemplate(last.__tplId && /^tl/.test(last.__tplId) ? last.__tplId : S.params.timelineTpl || 'tlTVD');
+  S.manual.params = { continueId: last.__miemieId };
+  syncManualInputs();
+  showTab('parts');
+  $('#manual-material').focus();
 }
 // 载入历史、换模板前会把输出框存成草稿；正文已经在历史里就别再存，不然点一下多一条。
 async function saveDraftIfNew() {

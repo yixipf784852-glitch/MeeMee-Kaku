@@ -30,8 +30,14 @@
   --seg-other: #7d5b90;
   --seg-place: #2e7a7f;
   --mono: 'Cascadia Mono', Consolas, 'SF Mono', monospace;
+  /* 安卓壳把状态栏、导航栏的高度写进 --safe-area-inset-*；浏览器里退回 env()，桌面上都是 0 */
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --bar: calc(56px + var(--safe-top));
+  color-scheme: light;
 }
 :root[data-theme='dark'] {
+  color-scheme: dark;
   --paper: #191714;
   --surface: #231f1a;
   --sunk: #2c2721;
@@ -65,6 +71,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
+    color-scheme: dark;
     --paper: #191714;
     --surface: #231f1a;
     --sunk: #2c2721;
@@ -228,11 +235,11 @@ svg {
   white-space: nowrap;
 }
 .topbar {
-  height: 56px;
+  height: var(--bar);
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--rule);
-  padding: 0 24px;
+  padding: var(--safe-top) 24px 0;
   gap: 32px;
   background: var(--surface);
   position: sticky;
@@ -386,7 +393,7 @@ svg {
 .layout {
   display: grid;
   grid-template-columns: 208px minmax(0, 1fr) 304px;
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - var(--bar));
 }
 .rail {
   border-right: 1px solid var(--rule);
@@ -394,8 +401,8 @@ svg {
   flex-direction: column;
   padding: 28px 0 22px;
   position: sticky;
-  top: 56px;
-  height: calc(100vh - 56px);
+  top: var(--bar);
+  height: calc(100vh - var(--bar));
 }
 .section-label {
   font-size: 11px;
@@ -633,8 +640,8 @@ svg {
   padding: 28px 24px;
   min-width: 0;
   position: sticky;
-  top: 56px;
-  height: calc(100vh - 56px);
+  top: var(--bar);
+  height: calc(100vh - var(--bar));
   overflow: auto;
 }
 .live-rail h2 {
@@ -1203,7 +1210,7 @@ svg {
   padding: 24px 26px 22px;
   width: 624px;
   max-width: calc(100vw - 28px);
-  max-height: calc(100vh - 40px);
+  max-height: calc(100vh - 40px - var(--safe-top) - var(--safe-bottom));
   overflow: auto;
 }
 .modal::backdrop {
@@ -1289,7 +1296,7 @@ svg {
 }
 .toast {
   position: fixed;
-  bottom: 24px;
+  bottom: calc(24px + var(--safe-bottom));
   left: 50%;
   transform: translateX(-50%);
   background: var(--ink);
@@ -1395,9 +1402,12 @@ svg {
   }
 }
 @media (max-width: 760px) {
+  :root {
+    --bar: calc(52px + var(--safe-top));
+  }
   .topbar {
-    height: 52px;
-    padding: 0 14px;
+    height: var(--bar);
+    padding: var(--safe-top) 14px 0;
     gap: 15px;
   }
   .brand {
@@ -1441,11 +1451,11 @@ svg {
   .parts-layout {
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - 52px);
+    min-height: calc(100vh - var(--bar));
   }
   .rail {
     position: sticky;
-    top: 52px;
+    top: var(--bar);
     z-index: 9;
     height: auto;
     padding: 0;
@@ -1585,7 +1595,7 @@ svg {
     left: 0;
     right: 0;
     z-index: 8;
-    padding: 12px 20px max(12px, env(safe-area-inset-bottom));
+    padding: 12px 20px max(12px, var(--safe-bottom));
     background: var(--surface);
     border-top: 1px solid var(--rule);
   }
@@ -1766,7 +1776,7 @@ svg {
     flex-basis: 100%;
   }
   .toast {
-    bottom: 90px;
+    bottom: calc(90px + var(--safe-bottom));
   }
   .source-note {
     font-size: 10.5px;
@@ -1778,7 +1788,7 @@ svg {
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 12px 20px max(12px, env(safe-area-inset-bottom));
+    padding: 12px 20px max(12px, var(--safe-bottom));
     z-index: 8;
     background: var(--surface);
     border-top: 1px solid var(--rule);
@@ -1796,7 +1806,7 @@ svg {
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 12px 20px max(12px, env(safe-area-inset-bottom));
+    padding: 12px 20px max(12px, var(--safe-bottom));
     margin: 0;
     z-index: 8;
     background: var(--surface);
@@ -1982,7 +1992,7 @@ svg {
   .repair-layout {
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - 52px);
+    min-height: calc(100vh - var(--bar));
   }
   .repair-step {
     padding-bottom: 26px;

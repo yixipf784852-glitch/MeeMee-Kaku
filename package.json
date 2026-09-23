@@ -35,6 +35,7 @@
     },
     "files": [
       "desktop/main.cjs",
+      "desktop/preload.cjs",
       "desktop/icon.png",
       "dist/web/**",
       "package.json"

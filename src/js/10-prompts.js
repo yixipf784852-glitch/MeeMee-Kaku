@@ -177,9 +177,13 @@ function buildJobPrompt(job, ctx = { lore: S.lore, card: S.card, roster: S.roste
   ).trim();
   const name = String(job.name || params.name || '').trim();
   const material = String(job.material || '').trim();
+  let tplText = TPL_TEXT[tpl.id] || '';
+  // 模板写死了「必须拆成多个标签」，只在后面补一句「别拆」压不住，得把模板里那两处换掉
+  if (tpl.kind === 'setting' && params.settingOne) tplText = settingOneText(tplText);
   const sys =
-    COMMON_RULES +
-    (['opening', 'status', 'worldrule', 'topics'].includes(tpl.id) ? TPL_TEXT[tpl.id] : '\n\n' + TPL_TEXT[tpl.id]);
+    COMMON_RULES + (['opening', 'status', 'worldrule', 'topics'].includes(tpl.id) ? tplText : '\n\n' + tplText);
+  const base =
+    tpl.kind === 'timeline' && params.continueId ? timelineTail(findTimeline(ctx.card, params.continueId)) : null;
   let user = `【作品】${work || '（作者未指定）'}\n${cardContext(ctx.card)}${loreBlock(ctx.lore)}`;
   if (ctx.roster)
     user +=
@@ -189,7 +193,8 @@ function buildJobPrompt(job, ctx = { lore: S.lore, card: S.card, roster: S.roste
         : ctx.roster.map(item => (typeof item === 'string' ? item : item.name || '')).join('\n')) +
       '\n';
   // 一次性输出完整时间线时，专属资料（多半是小说原文）整段发出去，不然后半截剧情根本没进提示词
-  const materialCap = tpl.kind === 'timeline' && params.whole ? Infinity : 12000;
+  // 接着写时，专属资料就是下一段原文（比如第 201-400 章），同样整段发
+  const materialCap = tpl.kind === 'timeline' && (params.whole || base) ? Infinity : 12000;
   if (material)
     user +=
       '\n【这一件的专属资料】\n' +
@@ -204,7 +209,19 @@ function buildJobPrompt(job, ctx = { lore: S.lore, card: S.card, roster: S.roste
       (params.characterName || name || '（作者未指定）') +
       '\n只生成这一位角色的完整资料；标签名与角色名一致。';
   else if (tpl.kind === 'timeline') {
-    if (params.whole) {
+    if (base) {
+      user +=
+        '\n【接着写】这张卡已经有一段时间线，下面是它的结尾：\n' +
+        base.tail +
+        '\n\n这次接在它后面往下写' +
+        (params.arc ? `，只写「${params.arc}」这一段` : '，把资料里的剧情写完') +
+        '：' +
+        (base.sandboxDate
+          ? `第一个事件的日期必须在 ${base.sandboxDate} 之后（上一段的沙盒模式也算一天）`
+          : '日期接着上一段最后一个事件往后排') +
+        '；事件照常从「事件A」开始编，装进卡时会自动接着原来的字母往下排' +
+        '；上面已经写过的剧情不要重复。新写的部分放进一个 <world_timeline>，结尾照样是「沙盒模式 (日期起 - ∞)」。';
+    } else if (params.whole) {
       if (params.start) user += `\n【起始日期】时间线从 ${params.start} 开始往后排`;
       user +=
         '\n【范围】一次性输出完：把资料里的全部剧情从头写到尾，放进同一个 <world_timeline>，不要只写某一个篇章，也不要停下来等续写。结尾固定是「沙盒模式 (日期起 - ∞)」。';
@@ -215,12 +232,80 @@ function buildJobPrompt(job, ctx = { lore: S.lore, card: S.card, roster: S.roste
     }
     user += '\n' + TIMELINE_NAME_RULE;
   } else if (tpl.kind === 'setting')
-    user += '\n按这个作品的体系，把主要力量体系、组织、关键道具或机制各拆成独立的 <设定_名称> 标签，一次输出 3~6 个。';
+    user += params.settingOne
+      ? '\n这次只要一条：只输出一个 <设定_名称> 标签，要讲的几个方面都用 ## 分类写在这一个标签里。' +
+        (name && name !== tpl.name && name !== work ? `只写「${name}」，标签名就用它。` : '')
+      : '\n按这个作品的体系，把主要力量体系、组织、关键道具或机制各拆成独立的 <设定_名称> 标签，一次输出 3~6 个。';
   else if (tpl.kind === 'place') user += '\n生成 3~5 个地点，每个用独立的 <地点:地点名> 标签包裹。';
   if (name && tpl.kind !== 'chara' && name !== tpl.name) user += '\n【本件标题或范围】' + name;
   if (tpl.wave > 1)
     user += '\n必须引用上面已有条目中成立的人物、地点、机制和时间锚点。不要凭空补出上下文没有的专有地名或已确定日期。';
   return { sys, user };
+}
+
+function settingOneText(text) {
+  return text
+    .replace(
+      /^3\. \*\*独立拆分生成\*\*.*$/m,
+      '3. **只出一条**：本次只输出一个 `<设定_名称>` 标签。要讲的几个方面全部用 ## 二级标题分类写进这一个标签里，不要拆成多个标签。',
+    )
+    .replace(/如果输入的资料包含多个独立设定[\s\S]*?<\/设定_事物B>\s*/, '');
+}
+
+function findTimeline(card, id) {
+  const entries = card?.data?.character_book?.entries || [];
+  const e = entries.find(x => x.__miemieId === id);
+  return e && /<world_timeline>/.test(e.content || '') ? e.content : '';
+}
+// 接着写时间线：把已有时间线的结尾给模型看，算出沙盒那天和新一段该从哪个字母接
+function timelineTail(content) {
+  const body = String(content || '').match(/<world_timeline>([\s\S]*?)<\/world_timeline>/);
+  if (!body) return null;
+  const lines = body[1]
+    .split(/\r?\n/)
+    .map(x => x.trim())
+    .filter(Boolean);
+  if (!lines.length) return null;
+  const letterOf = x => (x.match(/^-?\s*事件([A-Z]+)\d*\s*[:：]/) || [])[1];
+  const sandbox = [...lines].reverse().find(x => /沙盒模式/.test(x)) || '';
+  const sandboxDate = (sandbox.match(/[(（]\s*([^()（）]*?)\s*起/) || [])[1] || '';
+  const last = [...lines].reverse().map(letterOf).find(Boolean);
+  // 沙盒模式那一行本身占着一个字母，接上去以后它被拿掉，新的一段正好从这个字母用起
+  const next = letterOf(sandbox) ? letterRank(letterOf(sandbox)) : last ? letterRank(last) + 1 : 1;
+  return { tail: lines.slice(-12).join('\n'), sandboxDate, nextLetter: rankLetter(next) };
+}
+// A=1 … Z=26、AA=27：事件字母按 26 进制数
+function letterRank(s) {
+  return [...s].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0);
+}
+function rankLetter(n) {
+  let s = '';
+  for (; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
+  return s;
+}
+// 接着写出来的那段拼回原时间线：去掉原来的沙盒模式收尾，新事件的字母顺延后接在后面
+function mergeTimeline(oldText, newText) {
+  const inner = t => (String(t).match(/<world_timeline>([\s\S]*?)<\/world_timeline>/) || [])[1];
+  const a = inner(oldText),
+    b = inner(newText);
+  if (a == null || b == null) throw new Error('时间线标签不完整，接不上。');
+  const shift = letterRank(timelineTail(oldText)?.nextLetter || 'A') - 1;
+  const kept = a
+    .split(/\r?\n/)
+    .filter(x => !/^\s*-?\s*事件[A-Z]*\d*\s*[:：]\s*沙盒模式/.test(x))
+    .join('\n')
+    .replace(/\s+$/, '');
+  const added = b
+    .replace(/^\s*\n/, '')
+    .replace(/\s+$/, '')
+    .replace(
+      /^(\s*-?\s*事件\s*)([A-Z]+)(\d*\s*[:：])/gm,
+      (_, head, letter, tail) => head + rankLetter(letterRank(letter) + shift) + tail,
+    );
+  return String(oldText).replace(
+    /<world_timeline>[\s\S]*?<\/world_timeline>/,
+    () => '<world_timeline>' + kept + '\n' + added + '\n</world_timeline>',
+  );
 }
 
 function generatedId() {
@@ -367,13 +452,30 @@ function applyGen(job, text) {
     return prepared;
   }
   const old = d.character_book && Array.isArray(d.character_book.entries) ? d.character_book.entries : [];
+  const tpl = TEMPLATES.find(t => t.id === job.tplId);
+  const continueId = tpl.kind === 'timeline' && job.params?.continueId;
+  if (continueId) {
+    const target = old.find(e => e.__miemieId === continueId);
+    if (!target) throw new Error('要接的那条时间线不在卡里了，换一条再接。');
+    // 同一件重装时先退回接之前的原文，免得同一段接两遍
+    const mb = job.mergedBase,
+      base = mb?.id === continueId && mb.result === target.content ? mb.content : target.content;
+    target.content = mergeTimeline(base, prepared.entries[0].content);
+    job.mergedBase = { id: continueId, content: base, result: target.content };
+    job.appliedIds = [];
+    S.lastAssembly = null;
+    return prepared;
+  }
+  if (Array.isArray(job.pick)) {
+    prepared.entries = prepared.entries.filter((_, i) => job.pick.includes(i));
+    if (!prepared.entries.length) throw new Error('一条都没勾，没东西可装。');
+  }
   const ids = new Set(Array.isArray(job.appliedIds) ? job.appliedIds : []);
   const overridesById = new Map(Array.from(S.overrides || [], ([i, seg]) => [old[i]?.__miemieId, seg]));
   const replacedByName = new Map(
     old.filter(e => ids.has(e.__miemieId)).map(e => [e.comment, overridesById.get(e.__miemieId)]),
   );
   const kept = old.filter(entry => !ids.has(entry.__miemieId));
-  const tpl = TEMPLATES.find(t => t.id === job.tplId);
   if (tpl.kind === 'timeline') {
     const hasActive = kept.some(entry => entry.enabled !== false && /<world_timeline>/.test(entry.content || ''));
     const previousActive = old.some(entry => ids.has(entry.__miemieId) && entry.enabled !== false);

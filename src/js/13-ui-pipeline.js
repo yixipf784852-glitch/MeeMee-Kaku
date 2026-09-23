@@ -2,6 +2,7 @@
 function setTheme() {
   if (uiCfg.theme === 'system') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = uiCfg.theme;
+  window.miemieDesktop?.setTheme(uiCfg.theme);
   $('#theme-toggle').title =
     `当前：${uiCfg.theme === 'dark' ? '夜班' : uiCfg.theme === 'light' ? '暖纸' : '跟随系统'}；点击切换`;
 }
@@ -51,6 +52,7 @@ function readProjectInputs() {
     arc: $('#timeline-arc').value.trim(),
     start: $('#timeline-start').value.trim(),
     whole: $('#timeline-scope').value === 'whole',
+    settingOne: $('#setting-mode').value === 'one',
   };
   $('#lore-count').textContent = `${S.lore.text.length.toLocaleString()} / 12,000`;
   if (S.card) {
@@ -76,6 +78,7 @@ function syncProjectInputs() {
   $('#timeline-arc').value = S.params.arc || '';
   $('#timeline-start').value = S.params.start || '';
   $('#timeline-scope').value = S.params.whole ? 'whole' : 'arc';
+  $('#setting-mode').value = S.params.settingOne ? 'one' : 'split';
   $('#lore-count').textContent = `${(S.lore.text || '').length.toLocaleString()} / 12,000`;
   $('#create-card').innerHTML = (S.card ? '更新资料，重新盘点' : '建立工程，开始盘点') + ' ' + icon('arrow');
 }
@@ -101,6 +104,8 @@ function onCardChanged() {
   }
   $$('[data-step]').forEach(el => (el.disabled = +el.dataset.step > 1 && !S.card));
   renderLive();
+  // 零件台「接在哪条后面」列的是卡里的时间线，卡一变就跟着刷新
+  if (S.manual) renderContinue();
   if (currentStep === 2) renderHealth();
   if (currentStep === 4) renderAssembly();
   if (currentStep === 5) renderExport();
@@ -156,7 +161,7 @@ function renderHealth() {
   $('#part-list').innerHTML = S.parts
     .map(
       p =>
-        `<div class="part-row"><span class="${p.ok ? 'ok' : 'muted'}">${icon(p.ok ? 'check' : 'circle', 15)}</span><span title="${esc(p.want)}">${esc(p.name)}</span><span class="part-got">${esc(p.got)}</span>${p.ok ? '<span class="muted small">已就位</span>' : `<button class="btn btn-sm" data-generate-kind="${esc(p.id)}">单独生成</button>`}</div>`,
+        `<div class="part-row"><span class="${p.ok ? 'ok' : 'muted'}">${icon(p.ok ? 'check' : 'circle', 15)}</span><span title="${esc(p.want)}">${esc(p.name)}</span><span class="part-got">${esc(p.got)}</span>${p.ok ? (p.id === 'timeline' ? '<button class="btn btn-sm" data-continue-timeline>接着写</button>' : '<span class="muted small">已就位</span>') : `<button class="btn btn-sm" data-generate-kind="${esc(p.id)}">单独生成</button>`}</div>`,
     )
     .join('');
   $('#preview-label').textContent = missing.length ? `一键出卡 · 缺 ${missing.length} 类` : '预览下一轮零件';

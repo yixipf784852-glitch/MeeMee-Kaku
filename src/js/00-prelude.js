@@ -224,6 +224,7 @@ function renderBusy() {
     'char-template',
     'timeline-template',
     'timeline-scope',
+    'setting-mode',
     'create-card',
     'new-project',
     'assemble',
@@ -246,6 +247,8 @@ function renderBusy() {
     'manual-arc',
     'manual-start',
     'manual-scope',
+    'manual-continue',
+    'manual-setting-mode',
     'copy-prompt',
   ].forEach(id => {
     const el = $('#' + id);

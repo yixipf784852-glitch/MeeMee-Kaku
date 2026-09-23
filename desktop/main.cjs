@@ -1,7 +1,7 @@
 // 咩咩制卡台 · 桌面端外壳（Electron）。
 // 界面就是 dist/web 那份单文件 HTML。这里只管四件事：开窗口、让接口请求不被跨域拦住、下载走「另存为」、外链交给系统浏览器。
 // 自检：electron . --selftest （隐藏窗口，起一个不带跨域头的假接口，让页面真去调，打印结果后退出）
-const { app, BrowserWindow, Menu, net, protocol, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, nativeTheme, net, protocol, session, shell } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
@@ -33,6 +33,7 @@ function createWindow() {
       // 这个窗口只加载本地这一份 HTML，没有远程页面，模型输出一律转义后显示，风险可控。
       webSecurity: false,
       spellcheck: false,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   });
   if (!SELFTEST) win.once('ready-to-show', () => win.show());
@@ -58,6 +59,10 @@ app.whenReady().then(async () => {
     item.setSaveDialogOptions({ title: '保存', defaultPath: path.join(app.getPath('downloads'), item.getFilename()) });
   });
   Menu.setApplicationMenu(null);
+  // 页面切深浅色时告诉这里，Windows 标题栏跟着变，不然夜班主题顶上一条白边
+  ipcMain.on('miemie:theme', (_event, theme) => {
+    nativeTheme.themeSource = ['dark', 'light'].includes(theme) ? theme : 'system';
+  });
   const win = createWindow();
   if (SELFTEST) await selftest(win);
 });
@@ -104,7 +109,7 @@ async function selftest(win) {
   if (win.webContents.isLoading()) await new Promise(r => win.webContents.once('did-finish-load', r));
   const script = `(async () => {
     for (let i = 0; i < 100 && projectBusy; i++) await new Promise(r => setTimeout(r, 100));   // 等页面自己的启动跑完
-    const out = { origin: location.origin, platform: PLATFORM, corsHelpHidden: document.querySelector('#cors-hint').closest('details').hidden };
+    const out = { origin: location.origin, platform: PLATFORM, corsHelpHidden: document.querySelector('#cors-hint').closest('details').hidden, themeBridge: typeof window.miemieDesktop?.setTheme };
     const call = async (base, stream) => { cfg.base = base; cfg.model = 'mock'; cfg.key = 'sk-selftest'; return (await ask('系统', '用户', { stream })).text; };
     try { out.stream = await call('http://127.0.0.1:${port}/v1', true); } catch (e) { out.stream = '失败：' + e.message; }
     try { out.json = await call('http://127.0.0.1:${port}/v1', false); } catch (e) { out.json = '失败：' + e.message; }
