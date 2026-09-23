@@ -225,6 +225,8 @@ function renderBusy() {
     'timeline-template',
     'timeline-scope',
     'setting-mode',
+    'user-role',
+    'hero-name',
     'create-card',
     'new-project',
     'assemble',

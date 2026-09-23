@@ -372,7 +372,8 @@ function recastPrompt(item) {
     `【这条现在的正文】\n${String(item.e.content || '').slice(0, 12000)}\n` +
     loreBlock(R.lore) +
     '\n把上面这条正文改写成规定格式，原有信息一条都不要丢；模板要求而原文没有的栏位，按这个作品的常识克制补全。只改写这一条，不要输出别的条目。' +
-    (item.kind === 'timeline' ? '\n' + TIMELINE_NAME_RULE : '');
+    '\n' +
+    userRule(item.kind);
   return { sys, user };
 }
 

@@ -151,12 +151,12 @@ async function init() {
           }
       }),
     );
-    ['work-name', 'card-name', 'lore-text', 'roster', 'timeline-arc', 'timeline-start'].forEach(id =>
+    ['work-name', 'card-name', 'lore-text', 'roster', 'timeline-arc', 'timeline-start', 'hero-name'].forEach(id =>
       $('#' + id).addEventListener('input', () => {
         if (!busy()) readProjectInputs();
       }),
     );
-    ['lore-web', 'char-template', 'timeline-template', 'timeline-scope', 'setting-mode'].forEach(id =>
+    ['lore-web', 'char-template', 'timeline-template', 'timeline-scope', 'setting-mode', 'user-role'].forEach(id =>
       $('#' + id).addEventListener('change', () => {
         if (!busy()) readProjectInputs();
       }),

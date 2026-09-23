@@ -2,10 +2,29 @@
 const COMMON_RULES = `你在给 SillyTavern 沙盒跑团卡补件，遵守咩咩制卡的规矩：
 - 一切内容必须从这部作品自身的世界观与机制推导，禁止照搬任何示例的字段。
 - 禁止预设结局、禁止剧透终局与角色生死；禁止"极度/极其/绝对/最"这类极端修饰词。
-- 涉及玩家的地方一律写 {{user}}，不要替玩家决定想法与行动。{{user}} 指玩家本人，不是原著里的任何角色：不要把原著主角或其他人物换成 {{user}}。
+- 涉及玩家的地方一律写 {{user}}，不要替玩家决定想法与行动。{{user}} 写不写、写给谁，看提示词里的【玩家的位置】。
 - 直接输出成品，不要解释、不要前言后语、不要用 markdown 代码围栏包起来。`;
-// 时间线记的是原著剧情。模型见到满篇「玩家」「跑团」，容易把小说主角当成玩家写成 {{user}}，这里写死。
-const TIMELINE_NAME_RULE = '【人名】时间线记的是原著剧情：原著人物（包括主角）在事件里一律写原名，不要换成 {{user}}。';
+// 玩家的位置两档：默认玩家是原著之外的新角色；另一档玩家顶替原著主角。
+// 模型见到满篇「玩家」「跑团」，默认档也容易把主角当成玩家写成 {{user}}，所以每一件都明说。
+function userRule(kind, p = {}) {
+  const hero = p.userRole === 'hero' ? String(p.heroName || '').trim() : '';
+  if (hero)
+    return (
+      `【玩家的位置】玩家顶替原著主角「${hero}」：写到${hero}的地方一律写 {{user}}，其他原著人物照写原名。` +
+      ({
+        chara: `角色和${hero}之间的关系、感情和触发条件，直接写成和 {{user}} 的；不要改写成「重要的人」这类泛称。`,
+        timeline: `${hero}的经历写成 {{user}} 的经历，只写发生了什么，不写 {{user}} 心里怎么想。`,
+        opening: `开场里玩家的身份就是${hero}（写作 {{user}}），不要再抽随机身份。`,
+      }[kind] || '')
+    );
+  return (
+    '【玩家的位置】{{user}} 是玩家本人，是原著之外的新角色，不是原著里的任何人：原著人物（包括主角）照写原名，不要换成 {{user}}。' +
+    ({
+      chara: '心理模型、性格、行为特征和对话范例里不要出现 {{user}}，照模板用泛化代称（重要的人、曾经的弟子……）。',
+      timeline: '时间线记的是原著剧情，事件里一律写原名。',
+    }[kind] || '')
+  );
+}
 const TPL_TEXT = Object.fromEntries(
   Array.from(document.querySelectorAll('script[type="text/plain"][data-tpl]'), element => [
     element.dataset.tpl,
@@ -168,7 +187,7 @@ function cardContext(card = S.card) {
   );
 }
 
-function buildJobPrompt(job, ctx = { lore: S.lore, card: S.card, roster: S.roster }) {
+function buildJobPrompt(job, ctx = { lore: S.lore, card: S.card, roster: S.roster, params: S.params }) {
   const tpl = TEMPLATES.find(t => t.id === job.tplId);
   if (!tpl) throw new Error('没有找到模板：' + job.tplId);
   const params = job.params || {};
@@ -230,7 +249,6 @@ function buildJobPrompt(job, ctx = { lore: S.lore, card: S.card, roster: S.roste
       if (params.start) user += `【起始日期】这个篇章从 ${params.start} 开始往后排\n`;
       user += '只输出这一个篇章的 <world_timeline>，结尾固定是「沙盒模式 (日期起 - ∞)」。';
     }
-    user += '\n' + TIMELINE_NAME_RULE;
   } else if (tpl.kind === 'setting')
     user += params.settingOne
       ? '\n这次只要一条：只输出一个 <设定_名称> 标签，要讲的几个方面都用 ## 分类写在这一个标签里。' +
@@ -238,6 +256,7 @@ function buildJobPrompt(job, ctx = { lore: S.lore, card: S.card, roster: S.roste
       : '\n按这个作品的体系，把主要力量体系、组织、关键道具或机制各拆成独立的 <设定_名称> 标签，一次输出 3~6 个。';
   else if (tpl.kind === 'place') user += '\n生成 3~5 个地点，每个用独立的 <地点:地点名> 标签包裹。';
   if (name && tpl.kind !== 'chara' && name !== tpl.name) user += '\n【本件标题或范围】' + name;
+  user += '\n' + userRule(tpl.kind, { ...(ctx.params || {}), ...params });
   if (tpl.wave > 1)
     user += '\n必须引用上面已有条目中成立的人物、地点、机制和时间锚点。不要凭空补出上下文没有的专有地名或已确定日期。';
   return { sys, user };

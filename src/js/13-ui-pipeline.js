@@ -53,7 +53,10 @@ function readProjectInputs() {
     start: $('#timeline-start').value.trim(),
     whole: $('#timeline-scope').value === 'whole',
     settingOne: $('#setting-mode').value === 'one',
+    userRole: $('#user-role').value,
+    heroName: $('#hero-name').value.trim(),
   };
+  $('#hero-field').hidden = S.params.userRole !== 'hero';
   $('#lore-count').textContent = `${S.lore.text.length.toLocaleString()} / 12,000`;
   if (S.card) {
     const name = $('#card-name').value.trim();
@@ -79,6 +82,9 @@ function syncProjectInputs() {
   $('#timeline-start').value = S.params.start || '';
   $('#timeline-scope').value = S.params.whole ? 'whole' : 'arc';
   $('#setting-mode').value = S.params.settingOne ? 'one' : 'split';
+  $('#user-role').value = S.params.userRole === 'hero' ? 'hero' : 'self';
+  $('#hero-name').value = S.params.heroName || '';
+  $('#hero-field').hidden = S.params.userRole !== 'hero';
   $('#lore-count').textContent = `${(S.lore.text || '').length.toLocaleString()} / 12,000`;
   $('#create-card').innerHTML = (S.card ? '更新资料，重新盘点' : '建立工程，开始盘点') + ' ' + icon('arrow');
 }
