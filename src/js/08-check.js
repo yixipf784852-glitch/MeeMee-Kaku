@@ -31,7 +31,10 @@ function dateAndEventIssues(text) {
   };
   if (!lines.length) return ['未解析到「-事件A: 标题 (Y年M月D日)」事件行'];
   for (const line of lines) {
-    const m = line.match(/^\s*-\s*事件\s*([A-Z]+\d*)\s*:.*?[（(](\d{1,6})年(\d{1,2})月(\d{1,2})日/);
+    // 架空作品常在年份前带纪年（IY 0016年、帝国历 3年），纪年不含数字和括号就放过
+    const m = line.match(
+      /^\s*-\s*事件\s*([A-Z]+\d*)\s*:.*?[（(]\s*[^()（）\d]{0,12}?\s*(\d{1,6})年(\d{1,2})月(\d{1,2})日/,
+    );
     if (!m) {
       errors.push('事件行缺编号、半角冒号或日期：' + line.slice(0, 65));
       continue;
