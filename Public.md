@@ -9,7 +9,7 @@
 | 构建 | 有。`src/` 按 `js/order.json` 拼成一个脚本，连同样式、12 份模板塞进 `src/shell.html` → `dist/web/咩咩制卡台.html` 和 `dist/app/index.html` |
 | 入口 | 页面 `src/shell.html` + `src/js/16-boot.js`；桌面壳 `desktop/main.cjs`；安卓工程 `android/` |
 | 公开 API | 没有对外 API；是独立应用。脚本内部靠共享顶层作用域互相调用 |
-| **尚未完成** | 真手机验收未做（只在模拟器上测过）；安卓端回复不流式显示；桌面端没有代码签名；没有 iOS 版；模拟器在中文路径下起不来，需英文名目录联接；缺件盘点还不检查「记忆相关」分区和备选开场的数量 |
+| **尚未完成** | 桌面端整体界面改版未做（还没有 DESIGN.md）；安卓端回复不流式显示；桌面端没有代码签名；没有 iOS 版；模拟器在中文路径下起不来，需英文名目录联接；缺件盘点还不检查「记忆相关」分区和备选开场的数量 |
 
 ## 仓库结构
 
@@ -41,10 +41,11 @@ src/js/10-prompts.js          提示词拼装
 src/js/11-queue.js            三波并发队列
 src/js/12-storage.js          IndexedDB 存档与生成历史
 src/js/13-ui-pipeline.js      出卡流水线界面、条目高级设置
-src/js/14-ui-parts.js         零件台界面
+src/js/14-ui-parts.js         零件台界面：设定出几条、装入前挑条目、接着写时间线
 src/js/15-ui-repair.js        修卡台界面
 src/js/16-boot.js             启动、事件绑定
 desktop/main.cjs              Electron 主进程；--selftest 自检
+desktop/preload.cjs           预加载：只开 miemieDesktop.setTheme，让标题栏跟页面深浅色走
 tools/build.mjs               拼单文件；--check 与给定文件逐字节比对
 tools/release.mjs             拷发布物、打源码包
 tools/android.mjs             打安卓包（工具链指向 .toolchain/）
@@ -61,8 +62,9 @@ tools/split.mjs               当初把单文件拆成 src 的一次性脚本
 1. 构建：`tools/build.mjs` 按 `js/order.json` 顺序把脚本首尾相接，保持一个 `'use strict'` 脚本、共享顶层作用域。
 2. 启动：`16-boot.js` 的 `init()` → 读 `localStorage` 配置 → 从 IndexedDB 恢复工程 → 渲染当前步骤。
 3. 出卡：填资料 → `checkParts` 盘点 → `createJobs` 生成任务 → 三波并发调接口 → `checkText` 自检（不过则带缺项重试一次）→ `applyGen` 装进卡 → 导出前 `assembleCard` 整理结构。
-4. 修卡：读卡 → `normalize` → `diagnose` 体检 → `assembleCard` 修结构 → 与原卡按条目 id 对照出改前改后 → 可重铸不合模板的正文，勾选后写回原卡再重跑。
-5. 导出：`cleanForExport` 去掉内部字段 → PNG 写双块并回读核对；或 JSON；或原生世界书。
+4. 零件台：`buildJobPrompt` → 生成 → `prepareGenerated` 解析；多条或同一件再装时弹 `askApply` 挑条目、选换掉或另装（写进 `job.pick`、清空 `appliedIds`）→ `applyGen`。接着写时间线时 `params.continueId` 指向原条目，`applyGen` 走 `mergeTimeline` 并进原条目。
+5. 修卡：读卡 → `normalize` → `diagnose` 体检 → `assembleCard` 修结构 → 与原卡按条目 id 对照出改前改后 → 可重铸不合模板的正文，勾选后写回原卡再重跑。
+6. 导出：`cleanForExport` 去掉内部字段 → PNG 写双块并回读核对；或 JSON；或原生世界书。
 
 <details><summary>边界情况</summary>
 
@@ -75,6 +77,11 @@ tools/split.mjs               当初把单文件拆成 src 的一次性脚本
 | 正文里只是提到「状态栏」「话题池」 | 不算那一类，只认条目自己的结构和名字 |
 | 接口整段返回 SSE（安卓原生网络层） | 看开头：`{` / `[` 按 JSON 解析，否则按 SSE 整段解析 |
 | 时间线「一次性输出完」 | 专属资料整段发送，不截在 12000 字；按篇章时截断并在提示词里注明 |
+| 设定「只出一条」 | `settingOneText` 把模板里「独立拆分生成」和多标签示例换掉，用户提示里只要一个标签；零件名称不是作品名时点名只写它 |
+| 接着写时间线 | `timelineTail` 取原条目 `<world_timeline>` 末 12 行、沙盒日期、下一个字母（沙盒那行的字母，没有沙盒就取最后字母 +1，Z 之后是 AA）；专属资料整段发送。模型照模板从 A 编（自检要求），`mergeTimeline` 去掉原沙盒行、新事件字母按偏移顺延后接上 |
+| 同一次生成重装接时间线 | `mergedBase` 记接之前的原文和接后的结果；原条目没被别处改过就退回原文再接，不会接两遍；新生成一次清掉 `mergedBase`，接在当前内容后面 |
+| 要接的时间线已被删掉 | `applyGen` 抛错，卡不动 |
+| 挑条目一条没勾 | 对话框提示「至少勾一条」，不关框 |
 | 删条目后 8 秒内撤销 | 插回原位置，分区覆盖按条目 id 重建；工程已切换则拒绝撤销 |
 | 修卡台装配时正文被改 | 装配层抛错中止，不写出结果 |
 
@@ -89,14 +96,16 @@ tools/split.mjs               当初把单文件拆成 src 的一次性脚本
 | `miemie.repair.lore` | localStorage | 修卡台的原作资料与联网开关 |
 | `miemie` | IndexedDB | `projects` 工程与存档点、`history` 生成历史、`lore` 资料 |
 
-主题：`app.css` 在 `:root` 定义颜色变量，暗色写在 `:root[data-theme="dark"]` 和系统暗色媒体查询里；`setTheme()` 改 `documentElement.dataset.theme`。
+主题：`app.css` 在 `:root` 定义颜色变量，暗色写在 `:root[data-theme="dark"]` 和系统暗色媒体查询里（同时切 `color-scheme`，滚动条和表单控件跟着变）；`setTheme()` 改 `documentElement.dataset.theme`，桌面端再通过 `miemieDesktop.setTheme` 切 `nativeTheme.themeSource`。
+
+安全区：`--safe-top` / `--safe-bottom` 先取 Capacitor 注入的 `--safe-area-inset-*`，没有就退回 `env(safe-area-inset-*)`；顶栏高度 `--bar` = 56px（手机 52px）+ `--safe-top`，粘性侧栏和整屏高度都按 `--bar` 算。
 
 ## 公开 API
 
 没有。开发中常用的命令：
 
 ```bash
-npm test                        # 15 条回归测试
+npm test                        # 20 条回归测试
 npm run build                   # 出 dist/web 和 dist/app
 npm run desktop                 # 从源码开桌面端
 npx electron . --selftest       # 桌面端自检，结果打到控制台
@@ -116,7 +125,7 @@ node tools/release.mjs          # 拷发布物、打源码包
 | 安卓下载 | Filesystem 写进缓存 + Share 弹系统分享；插件从 `Capacitor.Plugins` 取 |
 | 安卓 http 接口 | 已放行明文流量（清单里 `usesCleartextTraffic`），局域网自架模型可用 |
 | 签名 | 安卓正式签名钥匙在 `android/keystore/`，不进 git；桌面端未签名 |
-| 真机 | 未验收 |
+| 真机 | 常夜灯真机验收过 2.1.0 |
 
 ## 开发与验证
 

@@ -1,7 +1,7 @@
 {
   "name": "meemee-kaku",
   "productName": "咩咩制卡台",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "从零件到一张 SillyTavern 角色卡：出卡流水线、零件台、修卡台",
   "private": true,
   "type": "module",
