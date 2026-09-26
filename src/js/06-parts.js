@@ -16,6 +16,7 @@ function detectEntryTemplate(e) {
   // 只认条目自己的结构和名字：战斗思维链末尾写了句「写入状态栏」，曾被拿状态栏模板去套
   if (/\{\{setvar::status_format::|<status_format>/.test(t) || /^(?:【?输出(?:规则)?[】:：·]\s*)?状态栏/.test(c.trim()))
     return 'status';
+  if (/\{\{setvar::combat_driver::|<combat_driver>/.test(t)) return 'cot';
   if (/<easter_eggs>/.test(t) || /话题池/.test(c)) return 'topics';
   if (/<核心规则[:：]/.test(t) || /世界规则/.test(c)) return 'worldrule';
   if (/<地点[:：]/.test(t)) return 'place';
@@ -71,8 +72,9 @@ function checkParts(card, roster = []) {
     ['status', '状态栏', '按世界机制定义字段与更新规则'],
     ['topics', '开放性话题池', '带来源的触发、呈现和延伸'],
     ['opening', '开场白', '至少一条主开场或备选开场'],
+    ['cot', '战斗思维链', '有战斗或对抗的作品才需要', true],
   ];
-  return defs.map(([id, name, want]) => {
+  return defs.map(([id, name, want, optional]) => {
     const n = id === 'opening' ? opening : count(id),
       ok = id === 'chara' && names.length ? missingNames.length === 0 : n >= 1;
     return {
@@ -87,6 +89,7 @@ function checkParts(card, roster = []) {
             : '没有',
       want,
       gen: true,
+      optional: !!optional,
       ...(id === 'chara' ? { missingNames, count: n } : { count: n }),
     };
   });

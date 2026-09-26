@@ -6,7 +6,7 @@
 |---|---|
 | 是什么 | SillyTavern 角色卡制作与修复工具，一份源码出网页版单文件 HTML、Windows 桌面版、安卓 APK |
 | 技术栈 | 原生 JS（经典脚本，不用框架和打包器）；桌面壳 Electron 44；安卓壳 Capacitor 8；构建与测试 Node 24；格式化 Prettier |
-| 构建 | 有。`src/` 按 `js/order.json` 拼成一个脚本，连同样式、12 份模板塞进 `src/shell.html` → `dist/web/咩咩制卡台.html` 和 `dist/app/index.html` |
+| 构建 | 有。`src/` 按 `js/order.json` 拼成一个脚本，连同样式、13 份模板塞进 `src/shell.html` → `dist/web/咩咩制卡台.html` 和 `dist/app/index.html` |
 | 入口 | 页面 `src/shell.html` + `src/js/16-boot.js`；桌面壳 `desktop/main.cjs`；安卓工程 `android/` |
 | 公开 API | 没有对外 API；是独立应用。脚本内部靠共享顶层作用域互相调用 |
 | **尚未完成** | 桌面端整体界面改版未做（还没有 DESIGN.md）；安卓端回复不流式显示；桌面端没有代码签名；没有 iOS 版；模拟器在中文路径下起不来，需英文名目录联接；缺件盘点还不检查「记忆相关」分区和备选开场的数量 |
@@ -26,7 +26,7 @@ tools/          构建、发布、图标、签名、安卓打包与自检
 ```
 src/shell.html                页面骨架，留三个占位：/*@@CSS@@*/、<!--@@TEMPLATES@@-->、/*@@JS@@*/
 src/styles/app.css            全部样式，亮暗两套变量
-src/templates/*.txt           12 份生成模板（《咩咩制卡预设》原文，一字不改），order.json 定顺序
+src/templates/*.txt           13 份生成模板（《咩咩制卡预设》原文，一字不改），order.json 定顺序
 src/js/00-prelude.js          工具函数、全局状态 S / R / RC / RG、PLATFORM、下载
 src/js/01-constants.js        分区表、字段模板、分类正则
 src/js/02-png.js              PNG 读写（chara / ccv3 双块）
@@ -79,6 +79,9 @@ tools/split.mjs               当初把单文件拆成 src 的一次性脚本
 | 时间线「一次性输出完」 | 专属资料整段发送，不截在 12000 字；按篇章时截断并在提示词里注明 |
 | 时间线日期前带纪年 | 括号里年份前允许最多 12 个不含数字和括号的字（IY、帝国历）；日期比较、回退检查只看数字 |
 | 玩家的位置 | `userRule(kind, params)` 拼在每件提示词末尾；默认档要求原著人物含主角写原名、角色资料心理与对话里不出现 {{user}}；`userRole: 'hero'` 且 `heroName` 非空时，主角一律写 {{user}}，角色 / 时间线 / 开场白各加一句；选 hero 没填名字按默认档；修卡台照模板重铸固定默认档 |
+| 装入位置 | 换掉的：站回原条目位置，沿用原分区和顺序号；新加的：排到同分区最后一条后面、顺序号相同。整理过结构的卡按顺序号夹在起始/结尾标记之间认分区，只有不写明会认错时才记分区覆盖 |
+| 装入方式 | 只出一条时 `askApply` 列出同一类条目（`templateGroup` 归并时间线四种、角色两种）可选换掉；上次装过的、同名的默认选中；多条时只有挑条目和「换掉上次 / 另装」 |
+| 战斗思维链 | 模板 `cot`（取自咩咩制卡 v4.0 combat-cot，去掉子菜单和条目配置头）；装为「输出：战斗思维链」；数 combat_driver 标签前先剔 HTML 注释；盘点里 `optional`，不算缺件，一键出卡不带，`onlyKind: 'cot'` 才生成 |
 | 设定「只出一条」 | `settingOneText` 把模板里「独立拆分生成」和多标签示例换掉，用户提示里只要一个标签；零件名称不是作品名时点名只写它 |
 | 接着写时间线 | `timelineTail` 取原条目 `<world_timeline>` 末 12 行、沙盒日期、下一个字母（沙盒那行的字母，没有沙盒就取最后字母 +1，Z 之后是 AA）；专属资料整段发送。模型照模板从 A 编（自检要求），`mergeTimeline` 去掉原沙盒行、新事件字母按偏移顺延后接上 |
 | 同一次生成重装接时间线 | `mergedBase` 记接之前的原文和接后的结果；原条目没被别处改过就退回原文再接，不会接两遍；新生成一次清掉 `mergedBase`，接在当前内容后面 |
@@ -107,7 +110,7 @@ tools/split.mjs               当初把单文件拆成 src 的一次性脚本
 没有。开发中常用的命令：
 
 ```bash
-npm test                        # 22 条回归测试
+npm test                        # 24 条回归测试
 npm run build                   # 出 dist/web 和 dist/app
 npm run desktop                 # 从源码开桌面端
 npx electron . --selftest       # 桌面端自检，结果打到控制台

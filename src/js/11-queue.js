@@ -100,8 +100,10 @@ function createJobs({ onlyKind, all = false } = {}) {
           result.push(make(tpl, row.name, row.material, { characterName: row.name, name: row.name }));
       });
   }
-  ['setting', 'place', 'worldrule', 'timeline', 'status', 'topics', 'opening'].forEach(kind => {
+  ['setting', 'place', 'worldrule', 'timeline', 'status', 'cot', 'topics', 'opening'].forEach(kind => {
     if (!wants(kind)) return;
+    // 战斗思维链是可选件：一键出卡不带它，点它那一行的「单独生成」才写
+    if (kind === 'cot' && !requested) return;
     const part = partRows.find(row => canonical(row.id || row.kind) === kind);
     if (!all && part && part.ok) return;
     const tpl =

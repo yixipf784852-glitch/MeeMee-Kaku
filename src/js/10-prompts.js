@@ -133,6 +133,16 @@ const TEMPLATES = [
     expectedChars: 2600,
   },
   {
+    id: 'cot',
+    name: '战斗思维链',
+    cat: '玩法组件',
+    kind: 'cot',
+    seg: 'output',
+    wave: 2,
+    desc: '每回合的裁定链，管住战斗与判定的公平；没战斗的作品写成行动裁定链',
+    expectedChars: 3000,
+  },
+  {
     id: 'worldrule',
     name: '世界规则',
     cat: '玩法组件',
@@ -200,7 +210,7 @@ function buildJobPrompt(job, ctx = { lore: S.lore, card: S.card, roster: S.roste
   // 模板写死了「必须拆成多个标签」，只在后面补一句「别拆」压不住，得把模板里那两处换掉
   if (tpl.kind === 'setting' && params.settingOne) tplText = settingOneText(tplText);
   const sys =
-    COMMON_RULES + (['opening', 'status', 'worldrule', 'topics'].includes(tpl.id) ? tplText : '\n\n' + tplText);
+    COMMON_RULES + (['opening', 'status', 'cot', 'worldrule', 'topics'].includes(tpl.id) ? tplText : '\n\n' + tplText);
   const base =
     tpl.kind === 'timeline' && params.continueId ? timelineTail(findTimeline(ctx.card, params.continueId)) : null;
   let user = `【作品】${work || '（作者未指定）'}\n${cardContext(ctx.card)}${loreBlock(ctx.lore)}`;
@@ -432,6 +442,11 @@ function prepareGenerated(tplId, text, name = '', params = {}) {
     if (!/\{\{setvar::status_format::/.test(text) || !/\}\}\s*$/.test(text))
       throw new Error('状态栏缺少完整的 setvar 壳。');
     push('输出：状态栏', text);
+  } else if (tpl.kind === 'cot') {
+    pairedGeneratedBlocks(text.replace(/<!--[\s\S]*?-->/g, ''), tag => tag === 'combat_driver', '战斗思维链');
+    if (!/\{\{setvar::combat_driver::/.test(text) || !/\}\}\s*$/.test(text))
+      throw new Error('战斗思维链缺少完整的 setvar 壳。');
+    push('输出：战斗思维链', text.trim());
   } else if (tpl.kind === 'worldrule') {
     pairedGeneratedBlocks(text, tag => /^核心规则[:：].+/.test(tag), '核心规则').forEach(block =>
       push(block.tag, block.text),
@@ -490,10 +505,12 @@ function applyGen(job, text) {
     if (!prepared.entries.length) throw new Error('一条都没勾，没东西可装。');
   }
   const ids = new Set(Array.isArray(job.appliedIds) ? job.appliedIds : []);
-  const overridesById = new Map(Array.from(S.overrides || [], ([i, seg]) => [old[i]?.__miemieId, seg]));
-  const replacedByName = new Map(
-    old.filter(e => ids.has(e.__miemieId)).map(e => [e.comment, overridesById.get(e.__miemieId)]),
-  );
+  const overrides = S.overrides instanceof Map ? S.overrides : new Map();
+  const overridesById = new Map(Array.from(overrides, ([i, seg]) => [old[i]?.__miemieId, seg]).filter(([id]) => id));
+  // 现在每条落在哪个分区（含手动改的、按起始/结尾标记认的），新条目照这个找位置
+  const plan = buildPlan(old, overrides);
+  const segOf = new Map(old.map((e, i) => [e, plan.get(i)?.seg]));
+  const firstReplaced = old.findIndex(e => ids.has(e.__miemieId));
   const kept = old.filter(entry => !ids.has(entry.__miemieId));
   if (tpl.kind === 'timeline') {
     const hasActive = kept.some(entry => entry.enabled !== false && /<world_timeline>/.test(entry.content || ''));
@@ -502,13 +519,44 @@ function applyGen(job, text) {
       entry.enabled = i === 0 && (!hasActive || previousActive);
     });
   }
-  const next = [...kept, ...prepared.entries];
+  // 换掉的：站到原条目的位置，接着用它的分区和顺序号。新加的：排在同分区最后一条后面，顺序号跟它一样。
+  // 不这样做的话，整理过结构的卡是按顺序号夹在起始/结尾标记之间认分区的，顺序号 100 的新条目会被认进别的分区。
+  const next = kept.slice();
+  const want = new Map();
+  if (firstReplaced >= 0) {
+    const at = old.slice(0, firstReplaced).filter(e => !ids.has(e.__miemieId)).length,
+      was = old[firstReplaced];
+    prepared.entries.forEach(e => {
+      want.set(e, segOf.get(was) || classify(e).seg);
+      if (was.insertion_order != null) e.insertion_order = was.insertion_order;
+    });
+    next.splice(at, 0, ...prepared.entries);
+  } else
+    prepared.entries.forEach(e => {
+      const seg = classify(e).seg;
+      want.set(e, seg);
+      let at = -1;
+      next.forEach((x, i) => {
+        if ((segOf.get(x) ?? want.get(x)) === seg && !MARKER_RE.test(x.comment || '')) at = i;
+      });
+      if (at < 0) next.push(e);
+      else {
+        if (next[at].insertion_order != null) e.insertion_order = next[at].insertion_order;
+        next.splice(at + 1, 0, e);
+      }
+    });
   if (!d.character_book) d.character_book = { name: (d.name || '未命名') + '世界书', entries: next };
   else d.character_book.entries = next;
   if (S.overrides instanceof Map) {
+    const markers = planFromMarkers(next);
     S.overrides = new Map();
     next.forEach((entry, i) => {
-      const seg = overridesById.get(entry.__miemieId) || replacedByName.get(entry.comment);
+      // 新条目只在「不写明就会被认错」时才记一笔分区
+      const seg = want.has(entry)
+        ? (markers.get(i) || classify(entry).seg) !== want.get(entry)
+          ? want.get(entry)
+          : null
+        : overridesById.get(entry.__miemieId);
       if (seg) S.overrides.set(i, seg);
     });
   }

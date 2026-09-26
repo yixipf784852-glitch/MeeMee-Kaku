@@ -224,6 +224,27 @@ const CHECK = {
       },
     ],
   },
+  cot: {
+    label: '战斗思维链',
+    segs: [],
+    rules: [
+      { re: /\{\{setvar::combat_driver::[\s\S]*\}\}/, msg: '缺少 {{setvar::combat_driver::…}} 外壳', lv: 'crit' },
+      // 开头注释「每回合必须输出 <combat_driver> 模块」里也有这个标签，数标签前先把注释剔掉
+      {
+        fn: t => pairedTagIssues(t.replace(/<!--[\s\S]*?-->/g, ''), /<(\/?)\s*(combat_driver)\s*>/g, 'combat_driver'),
+        lv: 'crit',
+      },
+      {
+        fn: t => {
+          const n = (t.match(/━━\s*\d\s*\./g) || []).length;
+          return n >= 6 ? [] : ['裁定链不足六段（识别到 ' + n + ' 段）'];
+        },
+        lv: 'crit',
+      },
+      { re: /无代价/, msg: '缺「严禁无代价」原则', lv: 'warn' },
+      { re: /仅允许熟练度精进与关系深化/, msg: '缺成长锁', lv: 'warn' },
+    ],
+  },
   worldrule: {
     label: '世界规则',
     segs: [],

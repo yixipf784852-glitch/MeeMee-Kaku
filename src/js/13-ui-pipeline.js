@@ -154,7 +154,7 @@ function renderHealth() {
   if (!S.card) return;
   const issues = S.issues.filter(i => i.kind !== 'style' && i.lv !== 'ok');
   const style = S.issues.filter(i => i.kind === 'style');
-  const missing = S.parts.filter(p => !p.ok);
+  const missing = S.parts.filter(p => !p.ok && !p.optional);
   $('#health-summary').innerHTML =
     `<span class="pill">${icon('book', 13)} ${esc(S.card.data.name)}</span><span class="mono muted">${cardEntries().length} 条目</span><span class="${issues.length ? 'warn' : 'ok'}">${issues.length ? issues.length + ' 处需要处理' : '结构体检未发现问题'}</span>`;
   $('#fault-list').innerHTML = issues.length
@@ -163,11 +163,12 @@ function renderHealth() {
   $('#convention').hidden = !style.length;
   $('#convention-summary').textContent = `还有 ${style.length} 条「不合母版但不算坏」`;
   $('#convention-list').innerHTML = style.map(faultMarkup).join('');
-  $('#parts-count').textContent = `${S.parts.length - missing.length} / ${S.parts.length} 类齐备`;
+  const need = S.parts.filter(p => !p.optional).length;
+  $('#parts-count').textContent = `${need - missing.length} / ${need} 类齐备`;
   $('#part-list').innerHTML = S.parts
     .map(
       p =>
-        `<div class="part-row"><span class="${p.ok ? 'ok' : 'muted'}">${icon(p.ok ? 'check' : 'circle', 15)}</span><span title="${esc(p.want)}">${esc(p.name)}</span><span class="part-got">${esc(p.got)}</span>${p.ok ? (p.id === 'timeline' ? '<button class="btn btn-sm" data-continue-timeline>接着写</button>' : '<span class="muted small">已就位</span>') : `<button class="btn btn-sm" data-generate-kind="${esc(p.id)}">单独生成</button>`}</div>`,
+        `<div class="part-row"><span class="${p.ok ? 'ok' : 'muted'}">${icon(p.ok ? 'check' : 'circle', 15)}</span><span title="${esc(p.want)}">${esc(p.name)}</span><span class="part-got">${esc(p.got)}${p.optional && !p.ok ? ' · 可选' : ''}</span>${p.ok ? (p.id === 'timeline' ? '<button class="btn btn-sm" data-continue-timeline>接着写</button>' : '<span class="muted small">已就位</span>') : `<button class="btn btn-sm" data-generate-kind="${esc(p.id)}">单独生成</button>`}</div>`,
     )
     .join('');
   $('#preview-label').textContent = missing.length ? `一键出卡 · 缺 ${missing.length} 类` : '预览下一轮零件';
@@ -206,7 +207,7 @@ function renderLive() {
     range = orders.length ? `${Math.max(...orders)} → ${Math.min(...orders)}` : '—';
   const guessed = [...S.plan.values()].filter(p => p.guessedGender).length;
   const active = S.jobs?.items?.find(j => j.status === 'running');
-  const missing = S.parts.filter(p => !p.ok).length;
+  const missing = S.parts.filter(p => !p.ok && !p.optional).length;
   const header = `<div class="section-label">卡的实况</div><h2>${esc(S.card.data.name)}</h2><p class="live-sub">${esc(S.lore.work || '本机卡工程')}</p>`;
   const summary = `<div class="live-stats"><div class="stat"><span>世界书条目</span><strong>${es.length}<small> 条</small></strong></div><div class="stat"><span>还缺</span><strong>${missing}<small> 类零件</small></strong></div><div class="stat" style="grid-column:1/-1"><span>当前 order${S.initialOrders ? ' · 导入时 ' + esc(S.initialOrders) : ''}</span><strong style="font-size:23px">${range}</strong></div></div><div class="section-label">分区分布</div>${dist.band}<div class="legend">${SEGMENTS.map(s => `<div><i class="seg-dot" style="background:var(--seg-${s.id})"></i>${esc(segLabel(s.id).replace('清空局部变量', '清空变量'))}<span class="mono">${dist.counts[s.id]}</span></div>`).join('')}</div>${guessed ? `<div class="live-note warn">${guessed} 条角色的性别来自推测。请在装配表里确认分区。</div>` : ''}`;
   if (active) {
@@ -495,7 +496,7 @@ function toastAction(message, label, fn) {
 }
 function renderExport() {
   if (!S.card) return;
-  const outstanding = S.parts.filter(p => !p.ok).length,
+  const outstanding = S.parts.filter(p => !p.ok && !p.optional).length,
     issues = tieredChecks(S.card).play.length;
   const cover = S.art || S.png;
   if (coverURL) {

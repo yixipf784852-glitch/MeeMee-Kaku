@@ -286,7 +286,7 @@ function repairView(id) {
 
 function renderRepairParts() {
   const parts = checkParts(R.fixed.card, []),
-    lack = parts.filter(p => !p.ok).length;
+    lack = parts.filter(p => !p.ok && !p.optional).length;
   $('#repair-parts-count').textContent = lack ? `缺 ${lack} 类` : '件齐了';
   $('#repair-parts').innerHTML = parts
     .map(
@@ -645,7 +645,7 @@ function renderRepairExport() {
     repairCoverURL = null;
   }
   if (cover) repairCoverURL = URL.createObjectURL(new Blob([cover], { type: 'image/png' }));
-  const lack = checkParts(card, []).filter(p => !p.ok).length,
+  const lack = checkParts(card, []).filter(p => !p.ok && !p.optional).length,
     bad = repairFormatList().length;
   $('#repair-export').innerHTML =
     `<div class="export-preview">${repairCoverURL ? `<img class="card-cover" src="${repairCoverURL}" alt="角色卡封面">` : `<div class="card-cover cover-placeholder">${icon('sheep', 48)}<strong>${esc(d.name)}</strong><span class="small muted">默认封面</span></div>`}<div class="export-copy"><h2>${esc(d.name)}</h2><p>${repairEntries().length} 条世界书 · ${d.first_mes ? '1 个主开场' : '暂无开场'} · ${(d.alternate_greetings || []).length} 个备选开场<br>${esc(R.shape[0] || '')} → chara_card_v3</p>${lack || bad ? `<p class="notice">还缺 ${lack} 类件，${bad} 条正文不合模板。结构已经修好，可以先拿走用，也可以回第 04 步接着补。</p>` : '<p class="ok">结构修好了，件齐了，正文也合模板。</p>'}</div></div>`;

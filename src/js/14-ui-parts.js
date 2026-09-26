@@ -205,12 +205,19 @@ async function applyManual() {
   if (!job.params?.continueId) {
     const prepared = prepareGenerated(job.tplId, job.text, job.name, job.params || {}),
       ids = new Set(cardEntries().map(e => e.__miemieId)),
-      again = job.appliedIds.some(id => ids.has(id));
-    if (prepared.entries.length > 1 || again) {
-      const choice = await askApply(prepared.entries, again, job.seg);
+      last = job.appliedIds.filter(id => ids.has(id)),
+      // 只出一条时，卡里同一类的条目都能被它换掉（比如重写一段时间线、重写一个角色）
+      targets = prepared.entries.length === 1 ? sameKindEntries(job.tplId) : [];
+    if (prepared.entries.length > 1 || last.length || targets.length) {
+      const choice = await askApply(prepared.entries, {
+        last,
+        targets,
+        seg: job.seg,
+        name: prepared.entries[0]?.comment,
+      });
       if (!choice) return;
       job.pick = choice.pick;
-      if (!choice.replace) job.appliedIds = [];
+      job.appliedIds = choice.replaceIds;
     }
   }
   applyGen(job, job.text);
@@ -223,12 +230,47 @@ async function applyManual() {
   goStep(4);
   toast(job.params?.continueId ? '接好了，新的一段已经并进原来那条时间线' : '零件已装进当前卡');
 }
-// 写出好几条时挑着装；之前装过的，问一句是换掉还是另装一份
-function askApply(entries, again, seg) {
+function templateGroup(id) {
+  return /^tl|^timeline$/.test(id || '') ? 'timeline' : /^(chara|charV[12])$/.test(id || '') ? 'chara' : id;
+}
+function sameKindEntries(tplId) {
+  const group = templateGroup(tplId);
+  return cardEntries().filter(
+    e => !MARKER_RE.test(e.comment || '') && e.__miemieId && templateGroup(detectEntryTemplate(e)) === group,
+  );
+}
+// 写出好几条时挑着装。只出一条时选装法：另装一条，或者换掉卡里同类的某一条；上次装过的默认换掉它
+function askApply(entries, { last = [], targets = [], seg, name } = {}) {
   const d = $('#apply-modal'),
     many = entries.length > 1;
+  const options = many
+    ? last.length
+      ? [
+          { value: 'last', label: '换掉上次装进去的' },
+          { value: 'add', label: '另装一份，上次的留着' },
+        ]
+      : []
+    : [
+        { value: 'add', label: '另装一条，原来的都留着' },
+        ...targets.map(e => ({ value: e.__miemieId, label: '换掉「' + (e.comment || '未命名条目') + '」' })),
+      ];
+  const lastTarget = targets.find(e => last.includes(e.__miemieId)),
+    sameName = targets.find(e => e.comment === name),
+    picked = many ? (last.length ? 'last' : '') : (lastTarget || sameName)?.__miemieId || 'add';
+  $('#apply-heading').textContent = many ? '装哪些进卡' : '装入方式';
+  $('#apply-mode').hidden = !options.length;
+  $('#apply-mode-intro').textContent = many
+    ? '这一件之前装过一次。'
+    : lastTarget
+      ? '这一件之前装过一次，默认换掉上次那条。'
+      : '卡里已经有同一类的条目，可以直接换掉其中一条。';
+  $('#apply-mode-list').innerHTML = options
+    .map(
+      o =>
+        `<label class="preview-row"><input type="radio" name="apply-mode" value="${esc(o.value)}" ${o.value === picked ? 'checked' : ''}><span>${esc(o.label)}</span></label>`,
+    )
+    .join('');
   $('#apply-pick').hidden = !many;
-  $('#apply-mode').hidden = !again;
   $('#apply-list').innerHTML = many
     ? entries
         .map(
@@ -237,7 +279,6 @@ function askApply(entries, again, seg) {
         )
         .join('')
     : '';
-  d.querySelector('[name="apply-mode"][value="replace"]').checked = true;
   return new Promise(resolve => {
     let done = false;
     const finish = value => {
@@ -256,7 +297,8 @@ function askApply(entries, again, seg) {
         toast('至少勾一条');
         return;
       }
-      finish({ pick, replace: d.querySelector('[name="apply-mode"]:checked')?.value !== 'add' });
+      const mode = d.querySelector('[name="apply-mode"]:checked')?.value || 'add';
+      finish({ pick, replaceIds: mode === 'add' ? [] : mode === 'last' ? last : [mode] });
       d.close();
     };
     d.addEventListener('close', cancel);
